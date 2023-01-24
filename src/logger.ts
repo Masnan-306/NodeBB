@@ -1,19 +1,19 @@
-'use strict';
+// 'use strict';
 
-import { any } from "nconf";
+import { use } from 'nconf';
 
 /*
  * Logger module: ability to dynamically turn on/off logging for http requests & socket.io events
  */
 
-const fs = require('fs');
-const path = require('path');
-const winston = require('winston');
-const util = require('util');
-const morgan = require('morgan');
+import fs = require('fs');
+import path = require('path');
+import winston = require('winston');
+import util = require('util');
+import morgan = require('morgan');
 
-const file = require('./file');
-const meta = require('./meta');
+import file = require ('./file');
+import meta = require ('./meta');
 
 
 const opts = {
@@ -21,7 +21,7 @@ const opts = {
      * state used by Logger
      */
     express: {
-        app: {use : any},
+        app: { use },
         set: 0,
         ofn: null,
     },
