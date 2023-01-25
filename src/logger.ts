@@ -66,8 +66,7 @@ export function express_open() {
     /*
         * Always initialize "ofn" (original function) with the original logger function
         */
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    opts.express.ofn = morgan('combined', { stream: opts.streams.log.f });
+    opts.express.ofn = morgan('combined', { stream: opts.streams.log.f }) as unknown;
 }
 
 export function open(value: string) {
