@@ -12,9 +12,8 @@ import winston = require('winston');
 import util = require('util');
 import morgan = require('morgan');
 
-import file = require ('./file');
-import meta = require ('./meta');
-import { Express } from 'express-serve-static-core';
+import file from './file';
+import meta from './meta';
 
 
 const opts = {
@@ -31,35 +30,50 @@ const opts = {
     },
 };
 
+type Stream = NodeJS.WriteStream & {fd : 1} | fs.WriteStream;
+type Log = { f : Stream };
+type Socket = {
+    io: { sockets: {sockets: Socket[][]}},
+    emit: (arg0: unknown, arg1: unknown[]) => void,
+    oEmit: (arg0: unknown, arg1: unknown[]) => void,
+    onevent: (arg0: unknown, arg1: unknown[]) => void,
+    $onevent: (arg0: unknown, arg1: unknown[]) => void,
+    $onvent: unknown
+    uid: string
+};
+
+
 /* -- Logger -- */
-export const Logger = {
-    init: function (app: Express) {
+const Logger = {
+     init: function (app : express.Express): void {
         opts.express.app = app;
         /* Open log file stream & initialize express logging if meta.config.logger* variables are set */
         Logger.setup();
     },
     setup: function () {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         Logger.setup_one('loggerPath', meta.config.loggerPath);
     },
-    setup_one: function (key : string, value: any) {
+    setup_one: function (key : string, value: unknown) {
         /*
          * 1. Open the logger stream: stdout or file
          * 2. Re-initialize the express logger hijack
          */
         if (key === 'loggerPath') {
-            Logger.setup_one_log(value);
+            Logger.setup_one_log(value as string);
             Logger.express_open();
         }
     },
-    setup_one_log: function (value) {
+    setup_one_log: function (value : string) : void {
         /*
          * If logging is currently enabled, create a stream.
          * Otherwise, close the current stream
          */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         if (meta.config.loggerStatus > 0 || meta.config.loggerIOStatus) {
-            const stream = Logger.open(value);
+            const stream : Stream = Logger.open(value);
             if (stream) {
-                opts.streams.log.f = stream;
+                opts.streams.log.f = stream as NodeJS.WriteStream & {fd : 1};
             } else {
                 opts.streams.log.f = process.stdout;
             }
@@ -67,9 +81,9 @@ export const Logger = {
             Logger.close(opts.streams.log);
         }
     },
-    open: function (value) {
+    open: function (value: string) {
         /* Open the streams to log to: either a path or stdout */
-        let stream;
+        let stream : Stream;
         if (value) {
             if (file.existsSync(value)) {
                 const stats = fs.statSync(value);
@@ -93,13 +107,14 @@ export const Logger = {
         }
         return stream;
     },
-    close: function (stream) {
+    close: function (stream : Log) {
         if (stream.f !== process.stdout && stream.f) {
+            let stream : fs.WriteStream;
             stream.end();
         }
         stream.f = null;
     },
-    monitorConfig: function (socket: any, data: { key: string; value: any; }) {
+    monitorConfig: function (socket : Socket, data: { key: string; value: unknown; }) {
         /*
          * This monitor's when a user clicks "save" in the Logger section of the admin panel
          */
@@ -115,20 +130,23 @@ export const Logger = {
         /*
          * Always initialize "ofn" (original function) with the original logger function
          */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         opts.express.ofn = morgan('combined', { stream: opts.streams.log.f });
     },
-    expressLogger: function (req, res, next) {
+    expressLogger: function (req : express.Request, res : express.Response, next: () => unknown) {
         /*
          * The new express.logger
          *
          * This hijack allows us to turn logger on/off dynamically within express
          */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         if (meta.config.loggerStatus > 0) {
-            return opts.express.ofn(req, res, next);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            return opts.express.ofn(req, res, next) as unknown;
         }
         return next();
     },
-    prepare_io_string: function (_type : string, _uid : string, _args : any[]) {
+    prepare_io_string: function (_type : string, _uid : string, _args : unknown[]) {
         /*
          * This prepares the output string for intercepted socket.io events
          *
@@ -141,7 +159,7 @@ export const Logger = {
             return 'error';
         }
     },
-    io_close: function (socket) {
+    io_close: function (socket : Socket) {
         /*
          * Restore all hijacked sockets to their original emit/on functions
          */
@@ -158,7 +176,7 @@ export const Logger = {
             }
         }
     },
-    io: function (socket) {
+    io: function (socket: Socket) : void {
         /*
          * Go through all of the currently established sockets & hook their .emit/.on
          */
@@ -170,12 +188,12 @@ export const Logger = {
             Logger.io_one(socketObj, socketObj.uid);
         }
     },
-    io_one: function (socket, uid) {
+    io_one: function (socket: Socket, uid : string) : void {
         /*
          * This function replaces a socket's .emit/.on functions in order to intercept events
          */
-        function override(method, name: string, errorMsg: string) {
-            return (...args) => {
+        function override(method: { apply: (arg0: unknown, arg1: unknown[]) => void; }, name:string, errorMsg:string) {
+            return (...args: unknown[]) => {
                 if (opts.streams.log.f) {
                     opts.streams.log.f.write(Logger.prepare_io_string(name, uid, args));
                 }
@@ -186,6 +204,7 @@ export const Logger = {
                 }
             };
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         if (socket && meta.config.loggerIOStatus > 0) {
             // courtesy of: http://stackoverflow.com/a/9674248
             socket.oEmit = socket.emit;
@@ -197,3 +216,5 @@ export const Logger = {
         }
     },
 };
+
+export default Logger;

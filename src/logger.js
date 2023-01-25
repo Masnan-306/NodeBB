@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Logger = void 0;
 const express_1 = __importDefault(require("express"));
 /*
  * Logger module: ability to dynamically turn on/off logging for http requests & socket.io events
@@ -14,8 +13,8 @@ const path = require("path");
 const winston = require("winston");
 const util = require("util");
 const morgan = require("morgan");
-const file = require("./file");
-const meta = require("./meta");
+const file_1 = __importDefault(require("./file"));
+const meta_1 = __importDefault(require("./meta"));
 const opts = {
     /*
      * state used by Logger
@@ -30,14 +29,15 @@ const opts = {
     },
 };
 /* -- Logger -- */
-exports.Logger = {
+const Logger = {
     init: function (app) {
         opts.express.app = app;
         /* Open log file stream & initialize express logging if meta.config.logger* variables are set */
-        exports.Logger.setup();
+        Logger.setup();
     },
     setup: function () {
-        exports.Logger.setup_one('loggerPath', meta.config.loggerPath);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        Logger.setup_one('loggerPath', meta_1.default.config.loggerPath);
     },
     setup_one: function (key, value) {
         /*
@@ -45,8 +45,8 @@ exports.Logger = {
          * 2. Re-initialize the express logger hijack
          */
         if (key === 'loggerPath') {
-            exports.Logger.setup_one_log(value);
-            exports.Logger.express_open();
+            Logger.setup_one_log(value);
+            Logger.express_open();
         }
     },
     setup_one_log: function (value) {
@@ -54,8 +54,9 @@ exports.Logger = {
          * If logging is currently enabled, create a stream.
          * Otherwise, close the current stream
          */
-        if (meta.config.loggerStatus > 0 || meta.config.loggerIOStatus) {
-            const stream = exports.Logger.open(value);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        if (meta_1.default.config.loggerStatus > 0 || meta_1.default.config.loggerIOStatus) {
+            const stream = Logger.open(value);
             if (stream) {
                 opts.streams.log.f = stream;
             }
@@ -64,14 +65,14 @@ exports.Logger = {
             }
         }
         else {
-            exports.Logger.close(opts.streams.log);
+            Logger.close(opts.streams.log);
         }
     },
     open: function (value) {
         /* Open the streams to log to: either a path or stdout */
         let stream;
         if (value) {
-            if (file.existsSync(value)) {
+            if (file_1.default.existsSync(value)) {
                 const stats = fs.statSync(value);
                 if (stats) {
                     if (stats.isDirectory()) {
@@ -98,6 +99,7 @@ exports.Logger = {
     },
     close: function (stream) {
         if (stream.f !== process.stdout && stream.f) {
+            let stream;
             stream.end();
         }
         stream.f = null;
@@ -106,18 +108,19 @@ exports.Logger = {
         /*
          * This monitor's when a user clicks "save" in the Logger section of the admin panel
          */
-        exports.Logger.setup_one(data.key, data.value);
-        exports.Logger.io_close(socket);
-        exports.Logger.io(socket);
+        Logger.setup_one(data.key, data.value);
+        Logger.io_close(socket);
+        Logger.io(socket);
     },
     express_open: function () {
         if (opts.express.set !== 1) {
             opts.express.set = 1;
-            opts.express.app.use(exports.Logger.expressLogger);
+            opts.express.app.use(Logger.expressLogger);
         }
         /*
          * Always initialize "ofn" (original function) with the original logger function
          */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         opts.express.ofn = morgan('combined', { stream: opts.streams.log.f });
     },
     expressLogger: function (req, res, next) {
@@ -126,7 +129,9 @@ exports.Logger = {
          *
          * This hijack allows us to turn logger on/off dynamically within express
          */
-        if (meta.config.loggerStatus > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        if (meta_1.default.config.loggerStatus > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             return opts.express.ofn(req, res, next);
         }
         return next();
@@ -171,7 +176,7 @@ exports.Logger = {
         }
         const clientsMap = socket.io.sockets.sockets;
         for (const [, socketObj] of clientsMap) {
-            exports.Logger.io_one(socketObj, socketObj.uid);
+            Logger.io_one(socketObj, socketObj.uid);
         }
     },
     io_one: function (socket, uid) {
@@ -181,7 +186,7 @@ exports.Logger = {
         function override(method, name, errorMsg) {
             return (...args) => {
                 if (opts.streams.log.f) {
-                    opts.streams.log.f.write(exports.Logger.prepare_io_string(name, uid, args));
+                    opts.streams.log.f.write(Logger.prepare_io_string(name, uid, args));
                 }
                 try {
                     method.apply(socket, args);
@@ -191,7 +196,8 @@ exports.Logger = {
                 }
             };
         }
-        if (socket && meta.config.loggerIOStatus > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        if (socket && meta_1.default.config.loggerIOStatus > 0) {
             // courtesy of: http://stackoverflow.com/a/9674248
             socket.oEmit = socket.emit;
             const { emit } = socket;
@@ -202,3 +208,4 @@ exports.Logger = {
         }
     },
 };
+exports.default = Logger;
